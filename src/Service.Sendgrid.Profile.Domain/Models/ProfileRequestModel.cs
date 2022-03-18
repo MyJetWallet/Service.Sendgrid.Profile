@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace Service.Sendgrid.Profile.Domain.Models;
@@ -25,5 +26,10 @@ public class ProfileRequestModel
     public string StateProvinceRegion { get; set; }
     [JsonPropertyName("custom_fields")]
     public CustomFields CustomFields { get; set; }
+}
 
+public class ContactsModel
+{
+    [JsonPropertyName("contacts")]
+    public List<ProfileRequestModel> Profiles { get; set; }
 }

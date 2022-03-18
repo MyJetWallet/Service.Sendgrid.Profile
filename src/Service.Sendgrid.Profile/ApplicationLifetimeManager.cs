@@ -28,7 +28,7 @@ namespace Service.Sendgrid.Profile
             _logger.LogInformation("OnStarted has been called.");
             _serviceBusLifeTime.Start();
             _noSqlClientLife.Start();
-            _profileService.InitCustomFields();
+            _profileService.InitCustomFields().GetAwaiter().GetResult();
         }
 
         protected override void OnStopping()

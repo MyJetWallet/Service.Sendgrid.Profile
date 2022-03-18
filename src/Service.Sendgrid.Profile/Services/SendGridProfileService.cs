@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using MyJetWallet.Domain;
@@ -13,7 +14,6 @@ using Service.Balances.Grpc;
 using Service.Balances.Grpc.Models;
 using Service.KYC.Client;
 using Service.KYC.Domain.Models.Enum;
-using Service.KYC.Grpc;
 using Service.KYC.Grpc.Models;
 using Service.PersonalData.Grpc;
 using Service.PersonalData.Grpc.Contracts;
@@ -23,7 +23,7 @@ using Service.Sendgrid.Profile.Grpc.Models;
 
 namespace Service.Sendgrid.Profile.Services
 {
-    public class SendGridProfileService: ISendGridProfileService
+    public class SendGridProfileService : ISendGridProfileService
     {
         private readonly ILogger<SendGridProfileService> _logger;
         private readonly IPersonalDataServiceGrpc _personalData;
@@ -32,6 +32,7 @@ namespace Service.Sendgrid.Profile.Services
         private readonly IWalletBalanceService _walletBalanceService;
         private readonly IWalletService _walletService;
         private readonly SendGridClient _sendGridClient;
+        private Dictionary<string, string> _fieldsDictionary = new Dictionary<string, string>();
 
         public SendGridProfileService(ILogger<SendGridProfileService> logger, IPersonalDataServiceGrpc personalData,
             IKycStatusClient kycStatusService, IWalletService walletService,
@@ -49,13 +50,10 @@ namespace Service.Sendgrid.Profile.Services
 
         public async Task SubmitProfile(SubmitRequest request)
         {
-            var pd = await _personalData.GetByIdAsync(new GetByIdRequest()
+            var pd = await _personalData.GetByIdAsync(new GetByIdRequest
             {
                 Id = request.ClientId
             });
-            
-            if(string.IsNullOrWhiteSpace(pd.PersonalData.FirstName))
-                return;
 
             var wallet = await _walletService.GetDefaultWalletAsync(new JetClientIdentity
             {
@@ -63,19 +61,20 @@ namespace Service.Sendgrid.Profile.Services
                 BrandId = pd.PersonalData.BrandId,
                 BrokerId = Program.Settings.DefaultBroker
             });
-            
-            var balanceResponse = await _walletBalanceService.GetWalletBalancesAsync(new GetWalletBalancesRequest()
+
+            var balanceResponse = await _walletBalanceService.GetWalletBalancesAsync(new GetWalletBalancesRequest
             {
                 WalletId = wallet.WalletId
             });
 
-            var kycProfile = _kycStatusService.GetClientKycStatus(new KycStatusRequest()
+            var kycProfile = _kycStatusService.GetClientKycStatus(new KycStatusRequest
             {
                 BrokerId = Program.Settings.DefaultBroker,
                 ClientId = request.ClientId
             });
 
-            var session = _sessionReader.Get(t => t.TraderId == request.ClientId)?.OrderByDescending(t=>t.CreateTime).First();
+            var session = _sessionReader.Get(t => t.TraderId == request.ClientId)?.OrderByDescending(t => t.CreateTime)
+                .First();
             var requestModel = new ProfileRequestModel
             {
                 AddressLine1 = pd.PersonalData.Address,
@@ -92,20 +91,34 @@ namespace Service.Sendgrid.Profile.Services
                     PhoneVerify = pd.PersonalData.ConfirmPhone != null,
                     KycVerify = GetKycStatus(kycProfile),
                     Earn = wallet.EnableEarnProgram,
-                    Country = pd.PersonalData.CountryOfResidence,
+                    //Country = pd.PersonalData.CountryOfResidence,
                     Lang = "en", //TODO: get lang
                     LastEnter = session?.CreateTime ?? DateTime.MinValue,
-                    OsType = null, //TODO: get os
+                    OsType = "Unknown" //TODO: get os
                 }
             };
-            
+
+            var contacts = new ContactsModel
+            {
+                Profiles = new List<ProfileRequestModel> {requestModel}
+            };
+
+            var contactsJson = contacts.ToJson();
+            foreach (var (name, id) in _fieldsDictionary) contactsJson = contactsJson.Replace(name, id);
+
             var response = await _sendGridClient.RequestAsync(
-                method: SendGridClient.Method.POST,
-                urlPath: "marketing/field_definitions",
-                requestBody: requestModel.ToJson()
+                BaseClient.Method.PUT,
+                urlPath: "marketing/contacts",
+                requestBody: contactsJson
             );
 
-            _logger.LogInformation("Client profile submitted to sendgrid with status {status}. Response {response}", response.StatusCode, response.Body.ReadAsStringAsync().Result);
+            if(response.IsSuccessStatusCode)
+                _logger.LogInformation("Client profile submitted to sendgrid with status {status}. Response {response}",
+                response.StatusCode, response.Body.ReadAsStringAsync().Result);
+            else 
+                _logger.LogError("Client profile submitted to sendgrid with status {status}. Response {response}",
+                response.StatusCode, response.Body.ReadAsStringAsync().Result);
+
             //locals
             string GetKycStatus(KycStatusResponse response)
             {
@@ -125,28 +138,61 @@ namespace Service.Sendgrid.Profile.Services
 
         public async Task InitCustomFields()
         {
-            var fields = new List<string>()
-            {
-                @"{""name"": ""Reg_date"",""field_type"": ""Text""}",
-                @"{""name"": ""Phone_verify"",""field_type"": ""Text""}",
-                @"{""name"": ""KYC_verify"",""field_type"": ""Text""}",
-                @"{""name"": ""Earn"",""field_type"": ""Text""}",
-                //@"{""name"": ""Country"",""field_type"": ""Text""}",
-                @"{""name"": ""Lang"",""field_type"": ""Text""}",
-                @"{""name"": ""Last_enter"",""field_type"": ""Date""}",
-                @"{""name"": ""OS_type"",""field_type"": ""Text""}",
-            };
+            await CreateFieldsDictionary();
+            var fields = new List<string>();
+            var shouldUpdate = false;
+            
+            if (!_fieldsDictionary.TryGetValue("Reg_date", out _))
+                fields.Add(@"{""name"": ""Reg_date"",""field_type"": ""Text""}");
+            if (!_fieldsDictionary.TryGetValue("First_deposit", out _))
+                fields.Add(@"{""name"": ""First_deposit"",""field_type"": ""Text""}");
+            if (!_fieldsDictionary.TryGetValue("Phone_verify", out _))
+                fields.Add(@"{""name"": ""Phone_verify"",""field_type"": ""Text""}");
+            if (!_fieldsDictionary.TryGetValue("KYC_verify", out _))
+                fields.Add(@"{""name"": ""KYC_verify"",""field_type"": ""Text""}");
+            if (!_fieldsDictionary.TryGetValue("Earn", out _))
+                fields.Add(@"{""name"": ""Earn"",""field_type"": ""Text""}");
+            if (!_fieldsDictionary.TryGetValue("Lang", out _))
+                fields.Add(@"{""name"": ""Lang"",""field_type"": ""Text""}");
+            if (!_fieldsDictionary.TryGetValue("Last_enter", out _))
+                fields.Add(@"{""name"": ""Last_enter"",""field_type"": ""Date""}");
+            if (!_fieldsDictionary.TryGetValue("OS_type", out _))
+                fields.Add(@"{""name"": ""OS_type"",""field_type"": ""Text""}");
 
-            foreach (var data in fields)
-            {
-                var response = await _sendGridClient.RequestAsync(
-                    method: SendGridClient.Method.POST,
-                    urlPath: "marketing/field_definitions",
-                    requestBody: data
-                );
+            if (fields.Any())
+            {               
+                shouldUpdate = true;
+                foreach (var data in fields)
+                {
+                    var response = await _sendGridClient.RequestAsync(
+                        BaseClient.Method.POST,
+                        urlPath: "marketing/field_definitions",
+                        requestBody: data
+                    );
 
-                _logger.LogInformation("Custom fields created to sendgrid with status {status}. Response {response}",
-                    response.StatusCode, response.Body.ReadAsStringAsync().Result);
+                    _logger.LogInformation(
+                        "Custom fields created to sendgrid with status {status}. Response {response}",
+                        response.StatusCode, response.Body.ReadAsStringAsync().Result);
+                }
+            }
+
+            if (shouldUpdate)
+                await CreateFieldsDictionary();
+        }
+
+        private async Task CreateFieldsDictionary()
+        {
+            _fieldsDictionary = new Dictionary<string, string>();
+            var fieldsResponse = await _sendGridClient.RequestAsync(
+                BaseClient.Method.GET,
+                urlPath: "marketing/field_definitions"
+            );
+            if (fieldsResponse.IsSuccessStatusCode)
+            {
+                var fields = await
+                    JsonSerializer.DeserializeAsync<CustomFieldsResponse>(
+                        await fieldsResponse.Body.ReadAsStreamAsync());
+                _fieldsDictionary = fields.CustomFields.ToDictionary(t => t.Name, t => t.Id);
             }
         }
     }
