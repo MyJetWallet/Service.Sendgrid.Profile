@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -52,6 +53,9 @@ namespace Service.Sendgrid.Profile.Services
             {
                 Id = request.ClientId
             });
+            
+            if(string.IsNullOrWhiteSpace(pd.PersonalData.FirstName))
+                return;
 
             var wallet = await _walletService.GetDefaultWalletAsync(new JetClientIdentity
             {
@@ -121,42 +125,29 @@ namespace Service.Sendgrid.Profile.Services
 
         public async Task InitCustomFields()
         {
-            var data = @"{
-                ""name"": ""Reg_date"",
-                ""field_type"": ""Date""
-            },{
-                ""name"": ""First_deposit"",
-                ""field_type"": ""Text""
-            },{
-                ""name"": ""Phone_verify"",
-                ""field_type"": ""Text""
-            },{
-                ""name"": ""KYC_verify"",
-                ""field_type"": ""Text""
-            },{
-                ""name"": ""Earn"",
-                ""field_type"": ""Text""
-            },{
-                ""name"": ""Country"",
-                ""field_type"": ""Text""
-            },{
-                ""name"": ""Lang"",
-                ""field_type"": ""Text""
-            },{
-                ""name"": ""Last_enter"",
-                ""field_type"": ""Date""
-            },{
-                ""name"": ""OS_type"",
-                ""field_type"": ""Text""
-            }";
-            
-            var response = await _sendGridClient.RequestAsync(
-                method: SendGridClient.Method.PUT,
-                urlPath: "marketing/contacts",
-                requestBody: data
-            );
-            
-            _logger.LogInformation("Custom fields created to sendgrid with status {status}. Response {response}", response.StatusCode, response.Body.ReadAsStringAsync().Result);
+            var fields = new List<string>()
+            {
+                @"{""name"": ""Reg_date"",""field_type"": ""Text""}",
+                @"{""name"": ""Phone_verify"",""field_type"": ""Text""}",
+                @"{""name"": ""KYC_verify"",""field_type"": ""Text""}",
+                @"{""name"": ""Earn"",""field_type"": ""Text""}",
+                //@"{""name"": ""Country"",""field_type"": ""Text""}",
+                @"{""name"": ""Lang"",""field_type"": ""Text""}",
+                @"{""name"": ""Last_enter"",""field_type"": ""Date""}",
+                @"{""name"": ""OS_type"",""field_type"": ""Text""}",
+            };
+
+            foreach (var data in fields)
+            {
+                var response = await _sendGridClient.RequestAsync(
+                    method: SendGridClient.Method.POST,
+                    urlPath: "marketing/field_definitions",
+                    requestBody: data
+                );
+
+                _logger.LogInformation("Custom fields created to sendgrid with status {status}. Response {response}",
+                    response.StatusCode, response.Body.ReadAsStringAsync().Result);
+            }
         }
     }
 }
