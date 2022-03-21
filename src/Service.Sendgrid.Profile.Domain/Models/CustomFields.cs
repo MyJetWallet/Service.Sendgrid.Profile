@@ -8,13 +8,13 @@ public class CustomFields
     [JsonPropertyName("Reg_date")]
     public DateTime RegDate { get; set; }
     [JsonPropertyName("First_deposit")]
-    public bool FirstDeposit { get; set; }
+    public string FirstDeposit { get; set; }
     [JsonPropertyName("Phone_verify")]
-    public bool PhoneVerify { get; set; }
+    public string PhoneVerify { get; set; }
     [JsonPropertyName("KYC_verify")]
     public string KycVerify { get; set; }
     [JsonPropertyName("Earn")]
-    public bool Earn { get; set; }
+    public string Earn { get; set; }
     // [JsonPropertyName("Country")]
     // public string Country { get; set; }
     [JsonPropertyName("Lang")]

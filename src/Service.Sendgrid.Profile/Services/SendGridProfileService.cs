@@ -20,6 +20,7 @@ using Service.PersonalData.Grpc.Contracts;
 using Service.Sendgrid.Profile.Domain.Models;
 using Service.Sendgrid.Profile.Grpc;
 using Service.Sendgrid.Profile.Grpc.Models;
+using SimpleTrading.PersonalData.Abstractions.Auth.Consts;
 
 namespace Service.Sendgrid.Profile.Services
 {
@@ -31,7 +32,7 @@ namespace Service.Sendgrid.Profile.Services
         private readonly IMyNoSqlServerDataReader<RootSessionNoSqlEntity> _sessionReader;
         private readonly IWalletBalanceService _walletBalanceService;
         private readonly IWalletService _walletService;
-        private readonly SendGridClient _sendGridClient;
+        private readonly SendGridClient _client;
         private Dictionary<string, string> _fieldsDictionary = new Dictionary<string, string>();
 
         public SendGridProfileService(ILogger<SendGridProfileService> logger, IPersonalDataServiceGrpc personalData,
@@ -45,11 +46,14 @@ namespace Service.Sendgrid.Profile.Services
             _walletBalanceService = walletBalanceService;
             _sessionReader = sessionReader;
 
-            _sendGridClient = new SendGridClient(Program.Settings.ApiKey);
+            _client = new SendGridClient(Program.Settings.ApiKey);
         }
 
         public async Task SubmitProfile(SubmitRequest request)
         {
+            if (request.ClientId == SpecialUserIds.EmptyUser.ToString("N"))
+                return;
+
             var pd = await _personalData.GetByIdAsync(new GetByIdRequest
             {
                 Id = request.ClientId
@@ -88,10 +92,10 @@ namespace Service.Sendgrid.Profile.Services
                 CustomFields = new CustomFields
                 {
                     RegDate = wallet.CreatedAt,
-                    FirstDeposit = balanceResponse.Balances.Any(),
-                    PhoneVerify = pd.PersonalData.ConfirmPhone != null,
+                    FirstDeposit = balanceResponse.Balances.Any().ToString(),
+                    PhoneVerify = (pd.PersonalData.ConfirmPhone != null).ToString(),
                     KycVerify = GetKycStatus(kycProfile),
-                    Earn = wallet.EnableEarnProgram,
+                    Earn = wallet.EnableEarnProgram.ToString(),
                     //Country = pd.PersonalData.CountryOfResidence,
                     Lang = "en", //TODO: get lang
                     LastEnter = session?.CreateTime ?? DateTime.MinValue,
@@ -107,7 +111,7 @@ namespace Service.Sendgrid.Profile.Services
             var contactsJson = contacts.ToJson();
             foreach (var (name, id) in _fieldsDictionary) contactsJson = contactsJson.Replace(name, id);
 
-            var response = await _sendGridClient.RequestAsync(
+            var response = await _client.RequestAsync(
                 BaseClient.Method.PUT,
                 urlPath: "marketing/contacts",
                 requestBody: contactsJson
@@ -135,6 +139,7 @@ namespace Service.Sendgrid.Profile.Services
 
                 return "true";
             }
+
         }
 
         public async Task InitCustomFields()
@@ -144,7 +149,7 @@ namespace Service.Sendgrid.Profile.Services
             var shouldUpdate = false;
             
             if (!_fieldsDictionary.TryGetValue("Reg_date", out _))
-                fields.Add(@"{""name"": ""Reg_date"",""field_type"": ""Text""}");
+                fields.Add(@"{""name"": ""Reg_date"",""field_type"": ""Date""}");
             if (!_fieldsDictionary.TryGetValue("First_deposit", out _))
                 fields.Add(@"{""name"": ""First_deposit"",""field_type"": ""Text""}");
             if (!_fieldsDictionary.TryGetValue("Phone_verify", out _))
@@ -165,7 +170,7 @@ namespace Service.Sendgrid.Profile.Services
                 shouldUpdate = true;
                 foreach (var data in fields)
                 {
-                    var response = await _sendGridClient.RequestAsync(
+                    var response = await _client.RequestAsync(
                         BaseClient.Method.POST,
                         urlPath: "marketing/field_definitions",
                         requestBody: data
@@ -184,7 +189,7 @@ namespace Service.Sendgrid.Profile.Services
         private async Task CreateFieldsDictionary()
         {
             _fieldsDictionary = new Dictionary<string, string>();
-            var fieldsResponse = await _sendGridClient.RequestAsync(
+            var fieldsResponse = await _client.RequestAsync(
                 BaseClient.Method.GET,
                 urlPath: "marketing/field_definitions"
             );
