@@ -73,8 +73,9 @@ namespace Service.Sendgrid.Profile.Services
                 ClientId = request.ClientId
             });
 
-            var session = _sessionReader.Get(t => t.TraderId == request.ClientId)?.OrderByDescending(t => t.CreateTime)
-                .First();
+            var session = _sessionReader.Get(t => t.TraderId == request.ClientId)
+                ?.OrderByDescending(t => t.CreateTime)
+                .FirstOrDefault();
             var requestModel = new ProfileRequestModel
             {
                 AddressLine1 = pd.PersonalData.Address,
