@@ -58,7 +58,10 @@ namespace Service.Sendgrid.Profile.Services
             {
                 Id = request.ClientId
             });
-
+            
+            if(pd.PersonalData.Confirm == null)
+                return;
+            
             var wallet = await _walletService.GetDefaultWalletAsync(new JetClientIdentity
             {
                 ClientId = request.ClientId,
@@ -80,6 +83,7 @@ namespace Service.Sendgrid.Profile.Services
             var session = _sessionReader.Get(t => t.TraderId == request.ClientId)
                 ?.OrderByDescending(t => t.CreateTime)
                 .FirstOrDefault();
+            
             var requestModel = new ProfileRequestModel
             {
                 AddressLine1 = pd.PersonalData.Address,
