@@ -17,7 +17,7 @@
     <PackageReference Include="MyJetWallet.Sdk.GrpcSchema" Version="1.0.6" />
     <PackageReference Include="MyJetWallet.Sdk.NoSql" Version="2.1.2" />
     <PackageReference Include="MyJetWallet.Sdk.Service" Version="2.1.7" />
-    <PackageReference Include="MyJetWallet.Sdk.WalletApi" Version="2.5.1" />
+    <PackageReference Include="MyJetWallet.Sdk.WalletApi" Version="2.5.3" />
     <PackageReference Include="MyJetWallet.Service.BalanceHistory.Client" Version="2.5.8" />
     <PackageReference Include="MyJetWallet.Service.Balances.Client" Version="2.2.2" />
     <PackageReference Include="MyJetWallet.Service.ClientProfile.Client" Version="1.1.5" />
