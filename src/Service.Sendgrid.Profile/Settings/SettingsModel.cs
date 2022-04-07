@@ -37,5 +37,8 @@ namespace Service.Sendgrid.Profile.Settings
         
         [YamlProperty("SendgridProfile.MyNoSqlReaderHostPort")]
         public string MyNoSqlReaderHostPort { get; set; }
+        
+        [YamlProperty("SendgridProfile.ClientProfileGrpcServiceUrl")]
+        public string ClientProfileGrpcServiceUrl { get; set; }
     }
 }

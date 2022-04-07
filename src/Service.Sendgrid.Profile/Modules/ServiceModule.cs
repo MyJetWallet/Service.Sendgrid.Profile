@@ -6,6 +6,7 @@ using MyJetWallet.Sdk.ServiceBus;
 using MyJetWallet.Sdk.WalletApi.Wallets;
 using MyServiceBus.Abstractions;
 using Service.Balances.Client;
+using Service.ClientProfile.Client;
 using Service.ClientWallets.Client;
 using Service.ClientWallets.Domain.Models.ServiceBus;
 using Service.KYC.Client;
@@ -41,6 +42,7 @@ namespace Service.Sendgrid.Profile.Modules
             builder.RegisterPersonalDataClient(Program.Settings.PersonalDataGrpcServiceUrl);
             builder.RegisterBalancesClients(Program.Settings.BalancesGrpcServiceUrl, myNoSqlClient);
             builder.RegisterClientWalletsClients(myNoSqlClient, Program.Settings.ClientWalletsGrpcServiceUrl);
+            builder.RegisterClientProfileClients(myNoSqlClient, Program.Settings.ClientProfileGrpcServiceUrl);
             
             builder
                 .RegisterType<WalletService>()

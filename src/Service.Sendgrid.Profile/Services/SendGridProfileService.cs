@@ -12,6 +12,8 @@ using MyNoSqlServer.Abstractions;
 using SendGrid;
 using Service.Balances.Grpc;
 using Service.Balances.Grpc.Models;
+using Service.ClientProfile.Grpc;
+using Service.ClientProfile.Grpc.Models.Requests;
 using Service.KYC.Client;
 using Service.KYC.Domain.Models.Enum;
 using Service.KYC.Grpc.Models;
@@ -32,12 +34,14 @@ namespace Service.Sendgrid.Profile.Services
         private readonly IMyNoSqlServerDataReader<RootSessionNoSqlEntity> _sessionReader;
         private readonly IWalletBalanceService _walletBalanceService;
         private readonly IWalletService _walletService;
+        private readonly IClientProfileService _clientProfile;
+
         private readonly SendGridClient _client;
         private Dictionary<string, string> _fieldsDictionary = new Dictionary<string, string>();
 
         public SendGridProfileService(ILogger<SendGridProfileService> logger, IPersonalDataServiceGrpc personalData,
             IKycStatusClient kycStatusService, IWalletService walletService,
-            IWalletBalanceService walletBalanceService, IMyNoSqlServerDataReader<RootSessionNoSqlEntity> sessionReader)
+            IWalletBalanceService walletBalanceService, IMyNoSqlServerDataReader<RootSessionNoSqlEntity> sessionReader, IClientProfileService clientProfile)
         {
             _logger = logger;
             _personalData = personalData;
@@ -45,6 +49,7 @@ namespace Service.Sendgrid.Profile.Services
             _walletService = walletService;
             _walletBalanceService = walletBalanceService;
             _sessionReader = sessionReader;
+            _clientProfile = clientProfile;
 
             _client = new SendGridClient(Program.Settings.ApiKey);
         }
@@ -54,6 +59,14 @@ namespace Service.Sendgrid.Profile.Services
             if (request.ClientId == SpecialUserIds.EmptyUser.ToString("N"))
                 return;
 
+            var profile = await _clientProfile.GetOrCreateProfile(new GetClientProfileRequest()
+            {
+                ClientId = request.ClientId
+            });
+            
+            if(!profile.MarketingEmailAllowed)
+                return;
+            
             var pd = await _personalData.GetByIdAsync(new GetByIdRequest
             {
                 Id = request.ClientId
