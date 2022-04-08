@@ -146,15 +146,12 @@ namespace Service.Sendgrid.Profile.Services
             {
                 if (response.VerificationInProgress)
                     return "prog";
-                if (response.DepositStatus != KycOperationStatus.Allowed ||
-                    response.DepositStatus != KycOperationStatus.AllowedWithKycAlert &&
-                    response.TradeStatus != KycOperationStatus.Allowed ||
-                    response.TradeStatus != KycOperationStatus.AllowedWithKycAlert &&
-                    response.WithdrawalStatus != KycOperationStatus.Allowed ||
-                    response.WithdrawalStatus != KycOperationStatus.AllowedWithKycAlert)
-                    return "false";
+                if (response.DepositStatus == KycOperationStatus.Allowed || response.DepositStatus == KycOperationStatus.AllowedWithKycAlert &&
+                    response.TradeStatus == KycOperationStatus.Allowed || response.TradeStatus == KycOperationStatus.AllowedWithKycAlert &&
+                    response.WithdrawalStatus == KycOperationStatus.Allowed || response.WithdrawalStatus == KycOperationStatus.AllowedWithKycAlert)
+                    return "true";
 
-                return "true";
+                return "false";
             }
 
         }
