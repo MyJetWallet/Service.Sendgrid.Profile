@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using MyJetWallet.Domain;
@@ -9,6 +8,7 @@ using MyJetWallet.Sdk.Authorization.NoSql;
 using MyJetWallet.Sdk.Service;
 using MyJetWallet.Sdk.WalletApi.Wallets;
 using MyNoSqlServer.Abstractions;
+using Newtonsoft.Json;
 using SendGrid;
 using Service.Balances.Grpc;
 using Service.Balances.Grpc.Models;
@@ -63,17 +63,30 @@ namespace Service.Sendgrid.Profile.Services
             {
                 ClientId = request.ClientId
             });
-            
-            if(!profile.MarketingEmailAllowed)
+
+            if (profile == null)
+            {
+                _logger.LogError($"Cannot find clientProfile for: {request.ClientId}");
                 return;
+            }
             
             var pd = await _personalData.GetByIdAsync(new GetByIdRequest
             {
                 Id = request.ClientId
             });
-            
-            if(pd.PersonalData?.Confirm == null)
+
+            if (pd.PersonalData == null || pd.PersonalData?.Confirm == null)
+            {
+                _logger.LogError($"Cannot find PersonalData for: {request.ClientId}");
                 return;
+            }
+
+            if (pd.PersonalData?.IsDeactivated == true || profile?.MarketingEmailAllowed == false)
+            {
+                await DeleteContact(pd.PersonalData.Email, request.ClientId);
+                _logger.LogInformation("Remove user from marketing list: {clientId}", request.ClientId);
+                return;
+            }
             
             var wallet = await _walletService.GetDefaultWalletAsync(new JetClientIdentity
             {
@@ -135,8 +148,8 @@ namespace Service.Sendgrid.Profile.Services
             );
 
             if(response.IsSuccessStatusCode)
-                _logger.LogInformation("Client profile submitted to sendgrid with status {status}. Response {response}",
-                response.StatusCode, response.Body.ReadAsStringAsync().Result);
+                _logger.LogInformation("Client profile {clinetId} submitted to sendgrid with status {status}. Response {response}",
+                request.ClientId,response.StatusCode, response.Body.ReadAsStringAsync().Result);
             else 
                 _logger.LogError("Client profile submitted to sendgrid with status {status}. Response {response}",
                 response.StatusCode, response.Body.ReadAsStringAsync().Result);
@@ -154,6 +167,55 @@ namespace Service.Sendgrid.Profile.Services
                 return "false";
             }
 
+            
+            
+        }
+
+        private async Task DeleteContact(string email, string clientId)
+        {
+            var req = new
+            {
+                emails = new List<string>()
+                {
+                    email
+                }
+            };
+            
+            var searchResponse = await _client.RequestAsync(
+                BaseClient.Method.POST,
+                urlPath: "marketing/contacts/search/emails",
+                requestBody: req.ToJson());
+            
+            if (!searchResponse.IsSuccessStatusCode)
+                return;
+
+            var json = await searchResponse.Body.ReadAsStringAsync();
+
+            SearchResponse search = null;
+            try
+            {
+                search = JsonConvert.DeserializeObject<SearchResponse>(json);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Cannot deserialize search response: {json}; clientId: {clientId}");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(search?.id))
+                return;
+            
+            var deleteResponse = await _client.RequestAsync(
+                BaseClient.Method.DELETE,
+                urlPath: "marketing/contacts",
+                queryParams: $"ids={search.id}");
+            
+            _logger.LogInformation("contact delete response: {statusCode}, clientId: {clientId}", deleteResponse.StatusCode, clientId);
+        }
+
+        public class SearchResponse
+        {
+            public string id { get; set; }
         }
 
         public async Task InitCustomFields()
@@ -210,7 +272,7 @@ namespace Service.Sendgrid.Profile.Services
             if (fieldsResponse.IsSuccessStatusCode)
             {
                 var fields = await
-                    JsonSerializer.DeserializeAsync<CustomFieldsResponse>(
+                    System.Text.Json.JsonSerializer.DeserializeAsync<CustomFieldsResponse>(
                         await fieldsResponse.Body.ReadAsStreamAsync());
                 _fieldsDictionary = fields.CustomFields.ToDictionary(t => t.Name, t => t.Id);
             }
