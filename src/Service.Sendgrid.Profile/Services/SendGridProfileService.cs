@@ -63,21 +63,26 @@ namespace Service.Sendgrid.Profile.Services
             {
                 ClientId = request.ClientId
             });
-
-            if (profile == null)
-            {
-                _logger.LogError($"Cannot find clientProfile for: {request.ClientId}");
-                return;
-            }
             
             var pd = await _personalData.GetByIdAsync(new GetByIdRequest
             {
                 Id = request.ClientId
             });
 
-            if (pd.PersonalData == null || pd.PersonalData?.Confirm == null)
+            if (profile == null)
+            {
+                _logger.LogError($"Cannot find clientProfile for: {request.ClientId}");
+                return;
+            }
+
+            if (pd.PersonalData == null)
             {
                 _logger.LogError($"Cannot find PersonalData for: {request.ClientId}");
+                return;
+            }
+            
+            if (pd.PersonalData?.Confirm == null)
+            {
                 return;
             }
 
