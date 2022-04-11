@@ -72,7 +72,7 @@ namespace Service.Sendgrid.Profile.Services
                 Id = request.ClientId
             });
             
-            if(pd.PersonalData.Confirm == null)
+            if(pd.PersonalData?.Confirm == null)
                 return;
             
             var wallet = await _walletService.GetDefaultWalletAsync(new JetClientIdentity
