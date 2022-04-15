@@ -89,6 +89,7 @@ namespace Service.Sendgrid.Profile.Services
             if (pd.PersonalData?.IsDeactivated == true || profile?.MarketingEmailAllowed == false)
             {
                 await DeleteContact(pd.PersonalData.Email, request.ClientId);
+                await DeleteContact(pd.PersonalData.Email.Replace("_deactivated", ""), request.ClientId);
                 _logger.LogInformation("Remove user from marketing list: {clientId}", request.ClientId);
                 return;
             }
