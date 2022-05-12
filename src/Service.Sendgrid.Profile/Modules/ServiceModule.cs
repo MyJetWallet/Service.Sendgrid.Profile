@@ -35,7 +35,7 @@ namespace Service.Sendgrid.Profile.Modules
             builder.RegisterMyServiceBusSubscriberSingle<ClientWalletUpdateMessage>(serviceBusClient,
                 ClientWalletUpdateMessage.TopicName, queueName, TopicQueueType.PermanentWithSingleConnection);
             
-            var myNoSqlClient = builder.CreateNoSqlClient(() => Program.Settings.MyNoSqlReaderHostPort);
+            var myNoSqlClient = builder.CreateNoSqlClient(Program.Settings.MyNoSqlReaderHostPort, Program.LogFactory);
             builder.RegisterMyNoSqlReader<RootSessionNoSqlEntity>(myNoSqlClient, RootSessionNoSqlEntity.TableName);
             
             builder.RegisterKycStatusClients(myNoSqlClient, Program.Settings.KycGrpcServiceUrl);
