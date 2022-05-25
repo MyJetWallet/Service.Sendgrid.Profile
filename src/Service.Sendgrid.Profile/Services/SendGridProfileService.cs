@@ -106,15 +106,13 @@ namespace Service.Sendgrid.Profile.Services
                 WalletId = wallet.WalletId
             });
 
-            var kycProfile = _kycStatusService.GetClientKycStatus(new KycStatusRequest
+            var kycProfile = await _kycStatusService.GetClientKycStatus(new KycStatusRequest
             {
                 BrokerId = Program.Settings.DefaultBroker,
                 ClientId = request.ClientId
             });
 
-            var session = _sessionReader.Get(t => t.TraderId == request.ClientId)
-                ?.OrderByDescending(t => t.CreateTime)
-                .FirstOrDefault();
+            var session = _sessionReader.Get(t => t.TraderId == request.ClientId).MaxBy(t => t.CreateTime);
             
             var requestModel = new ProfileRequestModel
             {
