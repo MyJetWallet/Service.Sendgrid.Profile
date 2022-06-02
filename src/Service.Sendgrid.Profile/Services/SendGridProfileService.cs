@@ -113,51 +113,59 @@ namespace Service.Sendgrid.Profile.Services
                 ClientId = request.ClientId
             });
 
-            var session = _sessionReader.Get(t => t.TraderId == request.ClientId).MaxBy(t => t.CreateTime);
-            
-            var requestModel = new ProfileRequestModel
+            try
             {
-                AddressLine1 = pd.PersonalData.Address,
-                City = pd.PersonalData.City,
-                Country = pd.PersonalData.CountryOfResidence,
-                Email = pd.PersonalData.Email,
-                FirstName = pd.PersonalData.FirstName,
-                LastName = pd.PersonalData.LastName,
-                PostalCode = pd.PersonalData.PostalCode,
-                CustomFields = new CustomFields
+                var session = _sessionReader.Get(t => t.TraderId == request.ClientId)?.MaxBy(t => t.CreateTime);
+
+                var requestModel = new ProfileRequestModel
                 {
-                    RegDate = wallet.CreatedAt,
-                    FirstDeposit = balanceResponse.Balances.Any().ToString(),
-                    PhoneVerify = (pd.PersonalData.ConfirmPhone != null).ToString(),
-                    KycVerify = GetKycStatus(kycProfile),
-                    Earn = wallet.EnableEarnProgram.ToString(),
-                    //Country = pd.PersonalData.CountryOfResidence,
-                    Lang = "en", //TODO: get lang
-                    LastEnter = session?.CreateTime ?? DateTime.MinValue,
-                    OsType = "Unknown" //TODO: get os
-                }
-            };
+                    AddressLine1 = pd.PersonalData.Address ?? "",
+                    City = pd.PersonalData.City  ?? "",
+                    Country = pd.PersonalData.CountryOfResidence ?? "",
+                    Email = pd.PersonalData.Email ?? "",
+                    FirstName = pd.PersonalData.FirstName ?? "",
+                    LastName = pd.PersonalData.LastName ?? "",
+                    PostalCode = pd.PersonalData.PostalCode ?? "",
+                    CustomFields = new CustomFields
+                    {
+                        RegDate = wallet.CreatedAt,
+                        FirstDeposit = balanceResponse.Balances?.Any().ToString(),
+                        PhoneVerify = (pd.PersonalData.ConfirmPhone != null).ToString(),
+                        KycVerify = GetKycStatus(kycProfile),
+                        Earn = wallet.EnableEarnProgram.ToString(),
+                        //Country = pd.PersonalData.CountryOfResidence,
+                        Lang = "en", //TODO: get lang
+                        LastEnter = session?.CreateTime ?? DateTime.MinValue,
+                        OsType = "Unknown" //TODO: get os
+                    }
+                };
 
-            var contacts = new ContactsModel
+                var contacts = new ContactsModel
+                {
+                    Profiles = new List<ProfileRequestModel> {requestModel}
+                };
+
+                var contactsJson = contacts.ToJson();
+                foreach (var (name, id) in _fieldsDictionary) contactsJson = contactsJson.Replace(name, id);
+
+                var response = await _client.RequestAsync(
+                    BaseClient.Method.PUT,
+                    urlPath: "marketing/contacts",
+                    requestBody: contactsJson
+                );
+
+                if (response.IsSuccessStatusCode)
+                    _logger.LogInformation(
+                        "Client profile {clinetId} submitted to sendgrid with status {status}. Response {response}",
+                        request.ClientId, response.StatusCode, response.Body.ReadAsStringAsync().Result);
+                else
+                    _logger.LogError("Client profile submitted to sendgrid with status {status}. Response {response}",
+                        response.StatusCode, response.Body.ReadAsStringAsync().Result);
+            }
+            catch (Exception e)
             {
-                Profiles = new List<ProfileRequestModel> {requestModel}
-            };
-
-            var contactsJson = contacts.ToJson();
-            foreach (var (name, id) in _fieldsDictionary) contactsJson = contactsJson.Replace(name, id);
-
-            var response = await _client.RequestAsync(
-                BaseClient.Method.PUT,
-                urlPath: "marketing/contacts",
-                requestBody: contactsJson
-            );
-
-            if(response.IsSuccessStatusCode)
-                _logger.LogInformation("Client profile {clinetId} submitted to sendgrid with status {status}. Response {response}",
-                request.ClientId,response.StatusCode, response.Body.ReadAsStringAsync().Result);
-            else 
-                _logger.LogError("Client profile submitted to sendgrid with status {status}. Response {response}",
-                response.StatusCode, response.Body.ReadAsStringAsync().Result);
+                throw;
+            }
 
             //locals
             string GetKycStatus(KycStatusResponse response)
