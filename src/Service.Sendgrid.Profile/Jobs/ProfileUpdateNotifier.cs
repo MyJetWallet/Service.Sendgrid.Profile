@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using DotNetCoreDecorators;
 using MyJetWallet.Sdk.Authorization.ServiceBus;
+using Service.ClientProfile.Domain.Models;
 using Service.ClientWallets.Domain.Models.ServiceBus;
 using Service.KYC.Domain.Models.Messages;
 using Service.PersonalData.Domain.Models.ServiceBus;
@@ -14,14 +15,26 @@ namespace Service.Sendgrid.Profile.Jobs
         private readonly ISendGridProfileService _profileService;
 
         public ProfileUpdateNotifier(ISubscriber<SessionAuditEvent> sessionSubscriber,
-            ISubscriber<KycProfileUpdatedMessage> kycSubscriber, ISubscriber<PersonalDataUpdateMessage> pdSubscriber,
-            ISubscriber<ClientWalletUpdateMessage> walletSubscriber, ISendGridProfileService profileService)
+            ISubscriber<KycProfileUpdatedMessage> kycSubscriber, 
+            ISubscriber<PersonalDataUpdateMessage> pdSubscriber,
+            ISubscriber<ClientWalletUpdateMessage> walletSubscriber,
+            ISubscriber<ClientProfileUpdateMessage> profileSubscriber, 
+            ISendGridProfileService profileService)
         {
             _profileService = profileService;
             sessionSubscriber.Subscribe(HandleMessages);
             kycSubscriber.Subscribe(HandleMessages);
             pdSubscriber.Subscribe(HandleMessages);
             walletSubscriber.Subscribe(HandleMessages);
+            profileSubscriber.Subscribe(HandleMessages);
+        }
+
+        private async ValueTask HandleMessages(ClientProfileUpdateMessage message)
+        {
+            await _profileService.SubmitProfile(new SubmitRequest
+            {
+                ClientId = message.NewProfile.ClientId
+            });        
         }
 
         private async ValueTask HandleMessages(ClientWalletUpdateMessage message)

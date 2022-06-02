@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using MyJetWallet.Domain;
@@ -8,7 +10,6 @@ using MyJetWallet.Sdk.Authorization.NoSql;
 using MyJetWallet.Sdk.Service;
 using MyJetWallet.Sdk.WalletApi.Wallets;
 using MyNoSqlServer.Abstractions;
-using Newtonsoft.Json;
 using SendGrid;
 using Service.Balances.Grpc;
 using Service.Balances.Grpc.Models;
@@ -179,16 +180,13 @@ namespace Service.Sendgrid.Profile.Services
         {
             var req = new
             {
-                emails = new List<string>()
-                {
-                    email
-                }
+                query = "email LIKE {email}"
             };
             
             var searchResponse = await _client.RequestAsync(
                 BaseClient.Method.POST,
-                urlPath: "marketing/contacts/search/emails",
-                requestBody: req.ToJson());
+                urlPath: "marketing/contacts/search",
+                requestBody: req.ToJson().Replace("{email}", $"'{email}%'"));
             
             if (!searchResponse.IsSuccessStatusCode)
                 return;
@@ -198,7 +196,7 @@ namespace Service.Sendgrid.Profile.Services
             SearchResponse search = null;
             try
             {
-                search = JsonConvert.DeserializeObject<SearchResponse>(json);
+                search = await System.Text.Json.JsonSerializer.DeserializeAsync<SearchResponse>(await searchResponse.Body.ReadAsStreamAsync());
             }
             catch (Exception ex)
             {
@@ -206,22 +204,19 @@ namespace Service.Sendgrid.Profile.Services
                 return;
             }
 
-            if (string.IsNullOrEmpty(search?.id))
+            var id = search?.Result.FirstOrDefault()?.Id;
+            if (string.IsNullOrEmpty(id))
                 return;
-            
+
+            var queryParams = @"{ 'ids': 'DELETE_ID' }".Replace("DELETE_ID", id);
             var deleteResponse = await _client.RequestAsync(
                 BaseClient.Method.DELETE,
                 urlPath: "marketing/contacts",
-                queryParams: $"ids={search.id}");
+                queryParams: queryParams);
             
             _logger.LogInformation("contact delete response: {statusCode}, clientId: {clientId}", deleteResponse.StatusCode, clientId);
         }
-
-        public class SearchResponse
-        {
-            public string id { get; set; }
-        }
-
+        
         public async Task InitCustomFields()
         {
             await CreateFieldsDictionary();
