@@ -128,14 +128,14 @@ namespace Service.Sendgrid.Profile.Services
                     PostalCode = pd.PersonalData.PostalCode ?? "",
                     CustomFields = new CustomFields
                     {
-                        RegDate = wallet.CreatedAt,
-                        FirstDeposit = balanceResponse.Balances?.Any().ToString(),
+                        RegDate = wallet.CreatedAt.ToString("d"),
+                        FirstDeposit = balanceResponse.Balances?.Any().ToString() ?? "False",
                         PhoneVerify = (pd.PersonalData.ConfirmPhone != null).ToString(),
                         KycVerify = GetKycStatus(kycProfile),
                         Earn = wallet.EnableEarnProgram.ToString(),
                         //Country = pd.PersonalData.CountryOfResidence,
                         Lang = "en", //TODO: get lang
-                        LastEnter = session?.CreateTime ?? DateTime.MinValue,
+                        LastEnter = (session?.CreateTime.Date ?? DateTime.MinValue.Date).ToString("d"),
                         OsType = "Unknown" //TODO: get os
                     }
                 };

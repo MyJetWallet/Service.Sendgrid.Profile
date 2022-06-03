@@ -6,7 +6,7 @@ namespace Service.Sendgrid.Profile.Domain.Models;
 public class CustomFields
 {
     [JsonPropertyName("Reg_date")]
-    public DateTime RegDate { get; set; }
+    public string RegDate { get; set; }
     [JsonPropertyName("First_deposit")]
     public string FirstDeposit { get; set; }
     [JsonPropertyName("Phone_verify")]
@@ -20,7 +20,7 @@ public class CustomFields
     [JsonPropertyName("Lang")]
     public string Lang { get; set; }
     [JsonPropertyName("Last_enter")]
-    public DateTime LastEnter { get; set; }
+    public string LastEnter { get; set; }
     [JsonPropertyName("OS_type")]
     public string OsType { get; set; }
 
