@@ -20,9 +20,9 @@
     <PackageReference Include="MyJetWallet.Sdk.WalletApi" Version="3.0.20" />
     <PackageReference Include="MyJetWallet.Service.BalanceHistory.Client" Version="2.6.4" />
     <PackageReference Include="MyJetWallet.Service.Balances.Client" Version="2.2.4" />
-    <PackageReference Include="MyJetWallet.Service.ClientProfile.Client" Version="1.2.3" />
+    <PackageReference Include="MyJetWallet.Service.ClientProfile.Client" Version="1.2.4" />
     <PackageReference Include="MyJetWallet.Service.ClientWallets.Client" Version="1.4.2" />
-    <PackageReference Include="MyJetWallet.Service.PersonalData.Client" Version="1.2.2" />
+    <PackageReference Include="MyJetWallet.Service.PersonalData.Client" Version="1.2.3" />
     <PackageReference Include="MyJetWallet.Service.Service.KYC.Client" Version="1.5.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="prometheus-net.AspNetCore" Version="6.0.0" />
