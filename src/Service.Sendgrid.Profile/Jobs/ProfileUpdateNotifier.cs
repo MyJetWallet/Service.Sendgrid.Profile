@@ -1,6 +1,6 @@
 using System.Threading.Tasks;
 using DotNetCoreDecorators;
-using MyJetWallet.Sdk.Authorization.ServiceBus;
+using MyJetWallet.ServiceBus.SessionAudit.Models;
 using Service.ClientProfile.Domain.Models;
 using Service.ClientWallets.Domain.Models.ServiceBus;
 using Service.KYC.Domain.Models.Messages;

@@ -1,9 +1,9 @@
 ﻿using Autofac;
 using MyJetWallet.Sdk.Authorization.NoSql;
-using MyJetWallet.Sdk.Authorization.ServiceBus;
 using MyJetWallet.Sdk.NoSql;
 using MyJetWallet.Sdk.ServiceBus;
 using MyJetWallet.Sdk.WalletApi.Wallets;
+using MyJetWallet.ServiceBus.SessionAudit.Models;
 using MyServiceBus.Abstractions;
 using Service.Balances.Client;
 using Service.ClientProfile.Client;
@@ -26,7 +26,9 @@ namespace Service.Sendgrid.Profile.Modules
         {
             var serviceBusClient =
                 builder.RegisterMyServiceBusTcpClient((() => Program.Settings.SpotServiceBusHostPort), Program.LogFactory);
-            var queueName = "Service.SendgridProfile";
+            
+			const string queueName = "Service.SendgridProfile";
+
             builder.RegisterMyServiceBusSubscriberSingle<SessionAuditEvent>(serviceBusClient,
                 SessionAuditEvent.TopicName, queueName, TopicQueueType.PermanentWithSingleConnection);
             builder.RegisterMyServiceBusSubscriberSingle<KycProfileUpdatedMessage>(serviceBusClient,
